@@ -223,14 +223,9 @@ def predict_compatibility(
             bottom_tensor
         )
 
-        logits = compatibility_model(
-            top_features,
-            bottom_features
-        )
+        logit = logits.item()
 
-        probability = torch.sigmoid(
-            logits
-        ).item()
+        probability = torch.sigmoid(logits).item()
 
     prediction = (
         "Compatible"
@@ -238,7 +233,7 @@ def predict_compatibility(
         else "Incompatible"
     )
 
-    return probability, prediction
+    return probability, prediction,logit
 
 
 # ============================================================
@@ -486,7 +481,7 @@ if check_button:
 
             try:
 
-                probability, prediction = (
+                probability, prediction,logit = (
                     predict_compatibility(
                         top_image,
                         bottom_image
@@ -494,6 +489,8 @@ if check_button:
                 )
 
                 score = probability * 100
+                st.write(f"Raw model logit: {logit:.6f}")
+                st.write(f"Raw sigmoid probability: {probability:.10f}")
 
                 st.divider()
 

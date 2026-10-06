@@ -6,6 +6,7 @@ from torchvision import transforms
 from PIL import Image
 from pathlib import Path
 
+
 # ============================================================
 # AI OUTFIT COMPATIBILITY
 # Experiment 6 — ResNet50 + Two-Tower Network
@@ -17,6 +18,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
 
 # ============================================================
 # CONFIGURATION
@@ -30,6 +32,7 @@ MODEL_PATH = BASE_DIR / "resnet50_two_tower_epoch6.pt"
 DEVICE = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
 )
+
 
 IMAGE_TRANSFORM = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -53,7 +56,7 @@ def load_resnet():
             f"Missing {RESNET_WEIGHTS.name}"
         )
 
-    # Load the original ImageNet ResNet50 first
+    # Load the complete ImageNet ResNet50 first
     model = resnet50(weights=None)
 
     state_dict = torch.load(
@@ -89,16 +92,12 @@ class ResNet50TwoTower(nn.Module):
         super().__init__()
 
         self.projection = nn.Sequential(
-
             nn.Linear(
                 input_dim,
                 512
             ),
-
             nn.ReLU(),
-
             nn.Dropout(0.2),
-
             nn.Linear(
                 512,
                 embedding_dim
@@ -106,16 +105,12 @@ class ResNet50TwoTower(nn.Module):
         )
 
         self.classifier = nn.Sequential(
-
             nn.Linear(
                 embedding_dim * 4,
                 128
             ),
-
             nn.ReLU(),
-
             nn.Dropout(0.3),
-
             nn.Linear(
                 128,
                 1
@@ -132,6 +127,7 @@ class ResNet50TwoTower(nn.Module):
 
         bottom_proj = self.projection(bottom)
 
+        # Pairwise relationship features
         difference = torch.abs(
             top_proj - bottom_proj
         )
@@ -163,6 +159,7 @@ def load_compatibility_model():
             f"Missing {MODEL_PATH.name}"
         )
 
+    # This is a trusted, user-created checkpoint.
     checkpoint = torch.load(
         MODEL_PATH,
         map_location=DEVICE,
@@ -205,6 +202,10 @@ def predict_compatibility(
         load_compatibility_model()
     )
 
+    # --------------------------------------------------------
+    # Transform uploaded images
+    # --------------------------------------------------------
+
     top_tensor = IMAGE_TRANSFORM(
         top_image
     ).unsqueeze(0).to(DEVICE)
@@ -213,19 +214,39 @@ def predict_compatibility(
         bottom_image
     ).unsqueeze(0).to(DEVICE)
 
+    # --------------------------------------------------------
+    # Feature extraction + compatibility prediction
+    # --------------------------------------------------------
+
     with torch.inference_mode():
 
+        # ResNet50 -> 2048-D top features
         top_features = feature_extractor(
             top_tensor
         )
 
+        # ResNet50 -> 2048-D bottom features
         bottom_features = feature_extractor(
             bottom_tensor
         )
 
+        # Two-Tower model -> raw compatibility logit
+        logits = compatibility_model(
+            top_features,
+            bottom_features
+        )
+
+        # Extract scalar raw logit
         logit = logits.item()
 
-        probability = torch.sigmoid(logits).item()
+        # Convert raw logit to sigmoid score
+        probability = torch.sigmoid(
+            logits
+        ).item()
+
+    # --------------------------------------------------------
+    # Classification threshold
+    # --------------------------------------------------------
 
     prediction = (
         "Compatible"
@@ -233,7 +254,7 @@ def predict_compatibility(
         else "Incompatible"
     )
 
-    return probability, prediction,logit
+    return probability, prediction, logit
 
 
 # ============================================================
@@ -394,6 +415,10 @@ top_col, bottom_col = st.columns(
 )
 
 
+# ------------------------------------------------------------
+# TOP IMAGE
+# ------------------------------------------------------------
+
 with top_col:
 
     st.subheader("👕 TOP")
@@ -408,6 +433,8 @@ with top_col:
         key="top"
     )
 
+    top_image = None
+
     if top_file:
 
         top_image = Image.open(
@@ -420,6 +447,10 @@ with top_col:
             use_container_width=True
         )
 
+
+# ------------------------------------------------------------
+# BOTTOM IMAGE
+# ------------------------------------------------------------
 
 with bottom_col:
 
@@ -434,6 +465,8 @@ with bottom_col:
         ],
         key="bottom"
     )
+
+    bottom_image = None
 
     if bottom_file:
 
@@ -454,55 +487,150 @@ st.write("")
 # ============================================================
 # PREDICTION BUTTON
 # ============================================================
-def predict_compatibility(
-    top_image,
-    bottom_image
-):
 
-    feature_extractor = load_resnet()
+check_button = st.button(
+    "🔍  CHECK OUTFIT COMPATIBILITY",
+    type="primary",
+    use_container_width=True
+)
 
-    compatibility_model = (
-        load_compatibility_model()
-    )
 
-    top_tensor = IMAGE_TRANSFORM(
-        top_image
-    ).unsqueeze(0).to(DEVICE)
+# ============================================================
+# RUN PREDICTION
+# ============================================================
 
-    bottom_tensor = IMAGE_TRANSFORM(
-        bottom_image
-    ).unsqueeze(0).to(DEVICE)
+if check_button:
 
-    with torch.inference_mode():
+    if (
+        top_file is None
+        or bottom_file is None
+    ):
 
-        top_features = feature_extractor(
-            top_tensor
+        st.warning(
+            "Please upload both a top and a bottom image."
         )
 
-        bottom_features = feature_extractor(
-            bottom_tensor
-        )
+    else:
 
-        # Model output
-        logits = compatibility_model(
-            top_features,
-            bottom_features
-        )
+        with st.spinner(
+            "Analyzing outfit compatibility..."
+        ):
 
-        # Convert logit to probability
-        logit = logits.item()
+            try:
 
-        probability = torch.sigmoid(
-            logits
-        ).item()
+                probability, prediction, logit = (
+                    predict_compatibility(
+                        top_image,
+                        bottom_image
+                    )
+                )
 
-    prediction = (
-        "Compatible"
-        if probability >= 0.5
-        else "Incompatible"
-    )
+                # Convert probability to percentage
+                score = probability * 100
 
-    return probability, prediction, logit
+                st.divider()
+
+                st.markdown(
+                    "## 🎯 Prediction Result"
+                )
+
+                result_col1, result_col2 = (
+                    st.columns(2)
+                )
+
+                # ------------------------------------------------
+                # Compatibility score
+                # ------------------------------------------------
+
+                with result_col1:
+
+                    st.metric(
+                        "Compatibility Score",
+                        f"{score:.2f}%"
+                    )
+
+                # ------------------------------------------------
+                # Prediction
+                # ------------------------------------------------
+
+                with result_col2:
+
+                    if prediction == "Compatible":
+
+                        st.success(
+                            "🟢 COMPATIBLE"
+                        )
+
+                    else:
+
+                        st.error(
+                            "🔴 INCOMPATIBLE"
+                        )
+
+                # ------------------------------------------------
+                # Progress bar
+                # ------------------------------------------------
+
+                st.progress(
+                    probability
+                )
+
+                st.caption(
+                    "The score is the model's sigmoid output "
+                    "for the compatible class."
+                )
+
+                # ------------------------------------------------
+                # Diagnostic information
+                # ------------------------------------------------
+
+                with st.expander(
+                    "🔎 Model Output Diagnostics"
+                ):
+
+                    st.write(
+                        f"**Raw model logit:** "
+                        f"`{logit:.10f}`"
+                    )
+
+                    st.write(
+                        f"**Raw sigmoid probability:** "
+                        f"`{probability:.10f}`"
+                    )
+
+                    st.write(
+                        f"**Displayed score:** "
+                        f"`{score:.6f}%`"
+                    )
+
+                    if probability >= 0.9999:
+
+                        st.warning(
+                            "The model output is extremely close "
+                            "to 1.0. This indicates a highly "
+                            "confident model prediction and may "
+                            "also indicate probability saturation."
+                        )
+
+                    elif probability <= 0.0001:
+
+                        st.warning(
+                            "The model output is extremely close "
+                            "to 0.0. This indicates a highly "
+                            "confident incompatible prediction "
+                            "and may also indicate probability "
+                            "saturation."
+                        )
+
+            except Exception as error:
+
+                st.error(
+                    "Prediction failed."
+                )
+
+                st.exception(error)
+
+
 # ============================================================
 # TECHNICAL DETAILS
 # ============================================================
@@ -535,7 +663,8 @@ with st.expander(
 
         → Neural classifier
 
-        → Compatibility probability
+        → Compatibility score
+
 
         ### Pairwise Features
 
@@ -545,9 +674,19 @@ with st.expander(
         - Bottom embedding
         - Absolute difference
         - Element-wise product
+
+
+        ### Classification
+
+        The model uses a sigmoid output with a
+        0.5 threshold for binary classification.
         """
     )
 
+
+# ============================================================
+# EXPERIMENT 6 RESULTS
+# ============================================================
 
 with st.expander(
     "📊 Experiment 6 Results"
@@ -567,11 +706,17 @@ with st.expander(
 
         **Important:** The benchmark uses constructed hard negatives,
         rather than independently human-annotated incompatibility labels.
-        Therefore these metrics describe performance on the project's
-        held-out benchmark.
+
+        Therefore, these metrics describe performance on the project's
+        held-out benchmark and should not be interpreted as a calibrated
+        probability of human judgment in the real world.
         """
     )
 
+
+# ============================================================
+# FOOTER
+# ============================================================
 
 st.caption(
     "Fashion Compatibility Project • "

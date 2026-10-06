@@ -454,93 +454,55 @@ st.write("")
 # ============================================================
 # PREDICTION BUTTON
 # ============================================================
+def predict_compatibility(
+    top_image,
+    bottom_image
+):
 
-check_button = st.button(
-    "🔍  CHECK OUTFIT COMPATIBILITY",
-    type="primary",
-    use_container_width=True
-)
+    feature_extractor = load_resnet()
 
+    compatibility_model = (
+        load_compatibility_model()
+    )
 
-if check_button:
+    top_tensor = IMAGE_TRANSFORM(
+        top_image
+    ).unsqueeze(0).to(DEVICE)
 
-    if (
-        top_file is None
-        or bottom_file is None
-    ):
+    bottom_tensor = IMAGE_TRANSFORM(
+        bottom_image
+    ).unsqueeze(0).to(DEVICE)
 
-        st.warning(
-            "Please upload both a top and a bottom image."
+    with torch.inference_mode():
+
+        top_features = feature_extractor(
+            top_tensor
         )
 
-    else:
+        bottom_features = feature_extractor(
+            bottom_tensor
+        )
 
-        with st.spinner(
-            "Analyzing outfit compatibility..."
-        ):
+        # Model output
+        logits = compatibility_model(
+            top_features,
+            bottom_features
+        )
 
-            try:
+        # Convert logit to probability
+        logit = logits.item()
 
-                probability, prediction,logit = (
-                    predict_compatibility(
-                        top_image,
-                        bottom_image
-                    )
-                )
+        probability = torch.sigmoid(
+            logits
+        ).item()
 
-                score = probability * 100
-                st.write(f"Raw model logit: {logit:.6f}")
-                st.write(f"Raw sigmoid probability: {probability:.10f}")
+    prediction = (
+        "Compatible"
+        if probability >= 0.5
+        else "Incompatible"
+    )
 
-                st.divider()
-
-                st.markdown(
-                    "## 🎯 Prediction Result"
-                )
-
-                result_col1, result_col2 = (
-                    st.columns(2)
-                )
-
-                with result_col1:
-
-                    st.metric(
-                        "Compatibility Score",
-                        f"{score:.2f}%"
-                    )
-
-                with result_col2:
-
-                    if prediction == "Compatible":
-
-                        st.success(
-                            "🟢 COMPATIBLE"
-                        )
-
-                    else:
-
-                        st.error(
-                            "🔴 INCOMPATIBLE"
-                        )
-
-                st.progress(
-                    probability
-                )
-
-                st.caption(
-                    "The score represents the model's "
-                    "predicted compatibility probability."
-                )
-
-            except Exception as error:
-
-                st.error(
-                    "Prediction failed."
-                )
-
-                st.exception(error)
-
-
+    return probability, prediction, logit
 # ============================================================
 # TECHNICAL DETAILS
 # ============================================================

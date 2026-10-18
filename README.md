@@ -1,58 +1,40 @@
-# 👗 AI Outfit Compatibility Prediction Using Deep Learning
+# AI-Based Outfit Compatibility Prediction Using Deep Learning
 
-A deep-learning application that predicts whether a top and a bottom clothing item are visually compatible. The project combines **ResNet50 feature extraction**, a **Two-Tower neural network**, and **hard-negative mining** to learn relationships between clothing items.
+An AI-powered application that predicts the compatibility of a fashion outfit by analyzing an image of a top and an image of a bottom using deep learning.
 
-🔗 **Live Demo:** [AI Outfit Compatibility](https://ai-outfit-compatibility.streamlit.app/)
+**Live Demo:** [Try the Outfit Compatibility App](https://ai-outfit-compatibility.streamlit.app/)  
+**GitHub Repository:** [Outfit Compatibility App](https://github.com/RiyaRajKumari/outfit-compatibility-app)
 
-## 📌 Project Overview
+## Project Overview
 
-Choosing clothing items that work well together is an important part of fashion recommendation. This project explores how deep learning can automatically evaluate the visual compatibility of a top-bottom clothing combination.
+This project uses computer vision and deep learning to predict whether a top-bottom clothing combination is compatible. It uses a ResNet50-based Two-Tower neural network to extract visual features from clothing images and learn relationships between the two garments.
 
-The system accepts two clothing images and predicts whether the pair is compatible or incompatible. A trained model is integrated into an interactive Streamlit web application.
+The trained model is integrated into an interactive Streamlit web application where users can upload clothing images and receive a compatibility prediction.
 
-## 🎯 Objectives
+## Objectives
 
-- Extract meaningful visual features from clothing images.
-- Learn relationships between tops and bottoms.
-- Improve classification using hard-negative mining.
-- Compare multiple model architectures and training strategies.
-- Evaluate performance using classification metrics.
-- Deploy the trained model as a web application.
+- Develop a deep-learning model for top-bottom outfit compatibility prediction.
+- Extract meaningful visual features from clothing images using transfer learning.
+- Learn garment relationships using feature fusion and binary classification.
+- Evaluate model performance using standard classification metrics.
+- Deploy the trained model through an interactive web application.
 
-## 🗂️ Dataset
+## Key Features
 
-The project uses the **FashionVC dataset**.
+- Upload images of a top and a bottom.
+- Extract image features using pretrained ResNet50.
+- Predict outfit compatibility using a Two-Tower neural network.
+- Display a compatibility score and prediction.
+- Access the model through a deployed Streamlit application.
 
-| Dataset characteristic | Value |
-|---|---:|
-| Positive top-bottom pairs | 20,715 |
-| Unique tops | 14,866 |
-| Unique bottoms | 13,660 |
-| Final test pairs | 6,236 |
+## Model Architecture
 
-Positive pairs are obtained from the dataset's ground-truth combinations. Negative pairs are constructed by pairing tops with incorrect bottoms. The final experiment uses visually similar hard negatives to make classification more challenging.
+The application uses a ResNet50-based Two-Tower architecture.
 
-**Important:** The negative pairs are constructed examples, not independently human-annotated incompatible outfits.
-
-### Data Preparation
-
-- Images resized to `224 × 224` pixels.
-- Images converted to PyTorch tensors.
-- ImageNet mean and standard deviation normalization applied.
-- Random horizontal flipping used during training.
-- Data split at the top-item level into approximately 70% training, 15% validation, and 15% testing.
-
-The split prevents the same top item from appearing across multiple splits. Bottom items were not independently isolated across the splits.
-
-## 🧠 Model Architecture
-
-The final model combines **ResNet50** with a Two-Tower compatibility network.
-
-1. **Feature extraction:** ResNet50 extracts a 2,048-dimensional feature vector from each clothing image.
-2. **Shared projection:** Each feature vector is projected into a 128-dimensional embedding space through a shared projection network.
-3. **Relationship modelling:** The model calculates the absolute difference and element-wise product of the two embeddings.
-4. **Classification:** The combined relationship features are passed to a neural classifier.
-5. **Prediction:** The model outputs a compatibility probability and a binary prediction.
+1. **Image feature extraction:** ResNet50 extracts 2,048-dimensional visual features from each garment image.
+2. **Feature projection:** A shared projection network maps the features to 128-dimensional embeddings.
+3. **Feature fusion:** The top and bottom embeddings are combined using concatenation, absolute difference, and element-wise multiplication.
+4. **Classification:** A multilayer perceptron produces a compatibility logit, which is converted into a probability using the sigmoid function.
 
 ### Architecture Flow
 
@@ -79,87 +61,68 @@ Shared Projection                Shared Projection
        Compatible / Incompatible
 ```
 
-## 🧪 Experimental Progress
+**Framework:** PyTorch  
+**Backbone:** ResNet50 pretrained on ImageNet  
+**Task:** Binary classification
 
-Six experiments were conducted to explore different architectures and training strategies.
+## Dataset
 
-| Experiment | Approach | Reported result |
-|---|---|---:|
-| 1 | Frozen ResNet18 + MLP | 60.83% validation accuracy |
-| 2 | Relationship-aware features | 60.93% validation accuracy |
-| 3 | Fine-tuned ResNet18 | 56.50% selected validation accuracy |
-| 4 | ResNet18 Two-Tower | 61.57% selected validation accuracy |
-| 5 | Two-Tower + hard-negative mining | 62.79% validation accuracy |
-| 6 | ResNet50 + Two-Tower + hard-negative mining | **96.41% test accuracy** |
+The project uses the FashionVC dataset for top-bottom compatibility prediction.
 
-These are the reported results from the respective experiments. Experiment 6 used a different backbone and experimental setup, so the results should not be interpreted as a perfectly controlled comparison of backbone architectures alone.
+- Ground-truth positive pairs are obtained from the dataset's top-bottom pair annotations.
+- Negative pairs are constructed using hard-negative mining, selecting visually similar candidate bottoms while excluding known positive combinations.
+- The dataset is divided into training, validation, and test sets by top ID to prevent the same top from appearing across different splits.
 
-## ⚙️ Training Configuration
+The evaluation dataset contains **6,236 pairs**, consisting of 3,118 positive pairs and 3,118 constructed hard-negative pairs.
+
+*Note: The negative pairs are constructed training/evaluation examples; they are not all independently human-annotated as incompatible.*
+
+## Image Preprocessing
+
+- Resize images to 224 × 224 pixels.
+- Convert images to tensors.
+- Normalize using ImageNet mean and standard deviation.
+- Apply random horizontal flipping during training.
+
+## Training Configuration
 
 | Parameter | Configuration |
 |---|---|
-| Backbone | ResNet50, pretrained on ImageNet |
-| Input image size | 224 × 224 |
-| Feature dimension | 2,048 |
-| Embedding dimension | 128 |
-| Loss function | BCEWithLogitsLoss |
+| Backbone | ResNet50 |
 | Optimizer | AdamW |
 | Learning rate | 0.001 |
 | Weight decay | 0.0001 |
 | Batch size | 256 |
-| Training epochs | 15 |
-| Selected checkpoint | Epoch 8, based on validation loss |
+| Maximum epochs | 15 |
+| Loss function | Binary Cross-Entropy with Logits |
+| Checkpoint selection | Validation loss |
 
-The selected checkpoint achieved a validation loss of **0.1094** and validation accuracy of **96.67%**.
+## Model Evaluation
 
-## 📊 Final Test Results — Experiment 6
+The final reported Experiment 6 results on the held-out test set are:
 
-The selected model was evaluated on 6,236 held-out pairs.
-
-| Metric | Result |
+| Metric | Score |
 |---|---:|
-| Accuracy | **96.41%** |
+| Accuracy | 96.41% |
 | Precision | 96.29% |
 | Recall | 96.54% |
 | F1-score | 96.41% |
-| ROC-AUC | **0.9931** |
+| ROC-AUC | 0.9931 |
 
-### Confusion Matrix
+These results apply to the constructed FashionVC test pairs. They should not be interpreted as a guarantee of the same performance on arbitrary real-world clothing images.
 
-| Actual class | Predicted incompatible | Predicted compatible |
-|---|---:|---:|
-| Incompatible | 3,002 | 116 |
-| Compatible | 108 | 3,010 |
-
-The model correctly classified 6,012 out of 6,236 test pairs.
-
-**Evaluation note:** These metrics measure performance on the constructed FashionVC hard-negative benchmark. They do not establish equivalent accuracy on arbitrary real-world outfits.
-
-## 🚀 Streamlit Application
-
-The deployed application allows users to:
-
-- Upload a top image.
-- Upload a bottom image.
-- Generate a compatibility prediction.
-- View the model's compatibility score.
-- Inspect technical details and benchmark metrics.
-
-**Try the application:** [AI Outfit Compatibility — Live Demo](https://ai-outfit-compatibility.streamlit.app/)
-
-## 🛠️ Technologies Used
+## Technology Stack
 
 - Python
 - PyTorch
 - Torchvision
-- ResNet50
-- Pandas and NumPy
-- Scikit-learn
+- ResNet50 and transfer learning
+- NumPy
+- Pillow
 - Streamlit
-- Kaggle
-- Git and GitHub
+- Git and Git LFS
 
-## 💻 Run Locally
+## Run Locally
 
 ### 1. Clone the repository
 
@@ -174,7 +137,7 @@ cd outfit-compatibility-app
 python -m venv venv
 ```
 
-Windows PowerShell:
+On Windows PowerShell:
 
 ```powershell
 .\venv\Scripts\Activate.ps1
@@ -183,49 +146,44 @@ Windows PowerShell:
 ### 3. Install dependencies
 
 ```bash
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
-### 4. Verify the model files
-
-Ensure the following files are present in the project directory:
-
-- `resnet50-11ad3fa6.pth`
-- `resnet50_two_tower_epoch6.pt`
-
-The pretrained ResNet50 weights and trained compatibility checkpoint are required for inference.
-
-### 5. Launch the application
+### 4. Run the application
 
 ```bash
-python -m streamlit run app.py
+streamlit run app.py
 ```
 
-Open the local URL displayed in the terminal.
+Open the local URL displayed in your terminal.
 
-## ⚠️ Limitations
+**Important:** The repository uses Git LFS for model files. Make sure Git LFS is installed and the model files have been downloaded correctly before running the application.
 
-- Negative examples are constructed rather than independently human-annotated.
-- The test split separates top items, but not necessarily bottom items.
-- Predictions on arbitrary internet images may be unreliable because their visual distribution can differ from FashionVC.
-- The compatibility score is a model output, not a calibrated measure of human fashion preference.
-- The current system evaluates a top-bottom pair; it does not yet provide personalized recommendations.
+## Deployment
 
-## 🔮 Future Improvements
+The application is deployed using Streamlit Community Cloud.
 
-- Evaluate using human-annotated incompatible outfit pairs.
-- Independently separate both top and bottom items across data splits.
-- Improve generalization to images from different sources.
-- Add personalized fashion recommendations and candidate ranking.
-- Extend compatibility prediction to additional clothing categories.
-- Explore scalable inference using precomputed embeddings and an API.
+**Live application:** https://ai-outfit-compatibility.streamlit.app/
 
-## 👩‍💻 Project Author
+Model checkpoints are managed using Git Large File Storage (Git LFS).
+
+## Limitations
+
+- Compatibility predictions depend on the patterns learned from the FashionVC dataset.
+- The model may perform differently on images from sources or clothing categories not represented in the training data.
+- A high predicted probability is not a calibrated guarantee that an outfit is objectively fashionable.
+- The model evaluates top-bottom compatibility and does not assess an entire outfit or individual style preferences.
+
+## Future Improvements
+
+- Evaluate generalization on additional fashion datasets.
+- Calibrate prediction probabilities.
+- Extend the model to additional garment categories.
+- Compare alternative feature-fusion strategies and model architectures.
+- Improve robustness to different image backgrounds, poses, and lighting conditions.
+
+## Author
 
 **Riya Raj Kumari**
 
-Developed as a deep-learning project exploring visual feature extraction, relationship-aware learning, hard-negative mining, model evaluation, and application deployment.
-
----
-
-*This project is an experimental fashion compatibility system intended for learning and research. Its benchmark results should not be interpreted as a guarantee of real-world outfit compatibility.*
+Developed as a deep-learning project exploring computer vision, transfer learning, outfit compatibility prediction, model evaluation, and web application deployment.

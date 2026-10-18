@@ -27,7 +27,7 @@ st.set_page_config(
 BASE_DIR = Path(__file__).resolve().parent
 
 RESNET_WEIGHTS = BASE_DIR / "resnet50-11ad3fa6.pth"
-MODEL_PATH = BASE_DIR / "resnet50_two_tower_epoch6.pt"
+MODEL_PATH = BASE_DIR / "resnet50_two_tower_epoch8.pt"
 
 DEVICE = torch.device(
     "cuda" if torch.cuda.is_available() else "cpu"
